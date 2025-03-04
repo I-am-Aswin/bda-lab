@@ -1,0 +1,7 @@
+/datasets/
+/hadoop_datanode1/
+/hadoop_datanode2/
+/hadoop_datanode3/
+/hadoop_namenode/
+/hadoop_metastore/
+/hadoop_postgres/

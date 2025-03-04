@@ -1,0 +1,185 @@
+version: '3'
+
+services:
+  namenode:
+    image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
+    container_name: namenode
+    restart: always
+    ports:
+      - 9870:9870
+      - 9000:9000
+    volumes:
+      - hadoop_namenode:/hadoop/dfs/name
+    environment:
+      - CLUSTER_NAME=test
+    env_file:
+      - ./hadoop.env
+    networks:
+      - hadoop-net
+
+  datanode1:
+    image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+    container_name: datanode1
+    restart: always
+    depends_on:
+      - namenode
+    volumes:
+      - hadoop_datanode1:/hadoop/dfs/data
+    environment:
+      SERVICE_PRECONDITION: "namenode:9870"
+    env_file:
+      - ./hadoop.env
+    networks:
+      - hadoop-net
+  
+  datanode2:
+    image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+    container_name: datanode2
+    restart: always
+    depends_on:
+      - namenode
+    volumes:
+      - hadoop_datanode2:/hadoop/dfs/data
+    environment:
+      SERVICE_PRECONDITION: "namenode:9870"
+    env_file:
+      - ./hadoop.env
+    networks:
+      - hadoop-net
+  
+  datanode3:
+    image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+    container_name: datanode3
+    restart: always
+    depends_on:
+      - namenode
+    volumes:
+      - hadoop_datanode3:/hadoop/dfs/data
+    environment:
+      SERVICE_PRECONDITION: "namenode:9870"
+    env_file:
+      - ./hadoop.env
+    networks:
+      - hadoop-net
+
+  hive-metastore-postgresql:
+    image: postgres:12
+    container_name: hive-metastore-postgresql
+    restart: always
+    environment:
+      POSTGRES_DB: metastore
+      POSTGRES_USER: hive
+      POSTGRES_PASSWORD: hive
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - hadoop-net
+
+  hive-metastore:
+    image: apache/hive:4.0.0-beta-1
+    container_name: hive-metastore
+    depends_on:
+      - namenode
+      - datanode1
+      - datanode2
+      - datanode3
+      - hive-metastore-postgresql
+    environment:
+      DB_DRIVER: postgres
+      DB_NAME: metastore
+      DB_HOST: hive-metastore-postgresql
+      DB_USER: hive
+      DB_PASSWORD: hive
+      SERVICE_NAME: metastore
+      SERVICE_OPTS: "-Djavax.jdo.option.ConnectionURL=jdbc:postgresql://hive-metastore-postgresql:5432/metastore -Djavax.jdo.option.ConnectionDriverName=org.postgresql.Driver -Djavax.jdo.option.ConnectionUserName=hive -Djavax.jdo.option.ConnectionPassword=hive"
+      HIVE_SITE_CONF_hive_metastore_warehouse_dir: /user/hive/warehouse
+      HIVE_SITE_CONF_hive_warehouse_subdir_inherit_perms: "true"
+      HIVE_SITE_CONF_hive_server2_enable_doas: "false"
+    volumes:
+      - ./postgresql-42.7.5.jar:/opt/hive/lib/postgresql-42.7.5.jar
+      - hadoop_metastore:/opt/hive/data
+    ports:
+      - "9083:9083"
+    command: >
+      sh -c "
+        /opt/hive/bin/schematool -dbType postgres -initSchema &&
+        /opt/hive/bin/hive --service metastore"
+    networks:
+      - hadoop-net
+
+  hive-server2:
+    image: apache/hive:4.0.0-beta-1
+    container_name: hive-server2
+    depends_on:
+      - hive-metastore
+    environment:
+      HIVE_SERVER2_THRIFT_PORT: 10000
+      SERVICE_NAME: hiveserver2  
+      HIVE_WAREHOUSE_DIR: /user/hive/warehouse
+      HIVE_SITE_CONF_hive_metastore_warehouse_dir: /user/hive/warehouse
+      HIVE_SITE_CONF_hive_warehouse_subdir_inherit_perms: "true"
+      HIVE_SITE_CONF_hive_server2_enable_doas: "false"
+    ports:
+      - "10000:10000"
+      - "10002:10002"
+    command: /opt/hive/bin/hive --service hiveserver2
+    networks:
+      - hadoop-net
+    
+  hdfs-init:
+    image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
+    depends_on:
+      - namenode
+    command: >
+      sh -c "
+        hdfs dfs -mkdir -p /user/hive/warehouse &&
+        hdfs dfs -chmod g+w /user/hive/warehouse"
+    networks:
+      - hadoop-net
+
+volumes:
+  hadoop_namenode:
+    driver: local
+    driver_opts:
+      type: none
+      device: ./hadoop_namenode
+      o: bind
+
+  hadoop_datanode1:
+    driver: local
+    driver_opts:
+      type: none
+      device: ./hadoop_datanode1
+      o: bind
+
+  hadoop_datanode2:
+    driver: local
+    driver_opts:
+      type: none
+      device: ./hadoop_datanode2
+      o: bind
+
+  hadoop_datanode3:
+    driver: local
+    driver_opts:
+      type: none
+      device: ./hadoop_datanode3
+      o: bind
+
+  postgres-data:
+    driver: local
+    driver_opts:
+      type: none
+      device: ./hadoop_postgres
+      o: bind
+  
+  hadoop_metastore:
+    driver: local
+    driver_opts:
+      type: none
+      device: ./hadoop_metastore
+      o: bind
+
+networks:
+  hadoop-net:
+    driver: bridge
