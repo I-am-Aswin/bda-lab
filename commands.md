@@ -4,11 +4,6 @@ Setup docker and docker compose before hand using these commands
 
 ## Initial Setup
 
-
-### Folder Creation
-
-> mkdir hadoop_datanode1 hadoop_datanode2 hadoop_datanode3 hadoop_metastore hadoop_namenode hadoop_postgres
-
 #### Load Docker Images
 
 > docker load -i hadoop_images.tar
@@ -16,11 +11,11 @@ Setup docker and docker compose before hand using these commands
 
 ## Cluster Management 
 
-### Start the Hadoop Cluster
+### Command to Start the Hadoop Cluster
 
 > docker-compose up -d
 
-### Stop the Haddop Cluster
+### Command to Stop the Haddop Cluster
 
 > docker-compose down
 
@@ -47,3 +42,24 @@ Setup docker and docker compose before hand using these commands
 ### Command to directly get dfs admin report
 
 > docker exec namenode hdfs dfsadmin -report
+
+
+
+### Basic Table Creation
+
+> CREATE EXTERNAL TABLE books_data (
+  Title STRING,
+  description STRING,
+  authors STRING,
+  image STRING,
+  previewLink STRING,
+  pubisher STRING,
+  publishedDate DATE,
+  infoLink STRING,
+  categories STRING,
+  ratingsCount INT
+)
+ROW FORMAT DELIMITED
+FIELDS TERMINATED BY ','
+STORED AS TEXTFILE
+LOCATION 'hdfs://namenode:9000/user/hive/warehouse/books_data';
